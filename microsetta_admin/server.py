@@ -1,3 +1,5 @@
+import csv
+import tempfile
 import jwt
 from flask import render_template, Flask, request, session, send_file
 import secrets
@@ -516,11 +518,31 @@ def new_kits():
         num_samples = int(request.form['num_samples'])
         prefix = request.form['prefix']
         selected_project_ids = request.form.getlist('project_ids')
+
+        barcodes = []
+
+        barcode_file = request.files.get('upload_csv')
+
+        if barcode_file:
+            barcode_file = barcode_file.read().decode('utf-8')
+            barcodes = [line.split(',')[0].strip('\ufeff\r')
+                        for line in barcode_file.split('\n')
+                        if line.strip()]
+        else:
+            # Process text input
+            for i in range(1, num_samples + 1):
+                barcode = request.form.get(f'barcode_{i}')
+                if barcode:
+                    barcodes.append(barcode)
+
         payload = {'number_of_kits': num_kits,
                    'number_of_samples': num_samples,
                    'project_ids': selected_project_ids}
+
         if prefix:
             payload['kit_id_prefix'] = prefix
+        if barcodes:
+            payload['user_barcodes'] = barcodes
 
         status, result = APIRequest.post(
                 '/api/admin/create/kits',
@@ -554,6 +576,133 @@ def new_kits():
         return send_file(payload, as_attachment=True,
                          download_name=fname,
                          mimetype='text/csv')
+
+
+@app.route('/add_barcode_to_kit', methods=['GET', 'POST'])
+def new_barcode_kit():
+
+    if request.method == 'GET':
+        return render_template('add_barcode_to_kit.html',
+                               **build_login_variables())
+
+    elif request.method == 'POST':
+        project_id = int(request.form['project_id'])
+        num_kits = int(request.form['num_kits'])
+        num_samples = int(request.form['num_samples'])
+        user_barcode = request.form['user_barcode']
+        kit_id = request.form['kit_id']
+        generate_barcode_payload = {'number_of_kits': num_kits,
+                                    'number_of_samples': num_samples}
+
+        status, result = APIRequest.post(
+                '/api/admin/create/barcodes',
+                json=generate_barcode_payload)
+        if status == 500:
+            title = result[5:result.index('\n\n\n')].strip()
+            raise Exception(f"500 error: {title}")
+
+        for key, file in request.files.items():
+            if key == 'upload_csv':
+                uploaded_csv_contents = file.read().decode('utf-8')
+
+        # If the user is generating more than one barcode
+        total_barcodes = num_kits * num_samples
+        if total_barcodes > 1:
+            # Write the barcodes to a temporary CSV file
+            with tempfile.NamedTemporaryFile(mode='w',
+                                             delete=False,
+                                             newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['Kit IDs', 'Barcode'])
+
+                # To build the barcode, kit id pairs
+                barcode_pairs = []
+
+                if uploaded_csv_contents:
+                    uploaded_csv_reader = csv.reader(io.StringIO
+                                                     (uploaded_csv_contents),
+                                                     skipinitialspace=True)
+                    check_columns = next(uploaded_csv_reader, None)
+
+                    # Check to see if the uploaded csv has only one column
+                    # If so, we know they're just providing kit ids
+                    if len(check_columns) == 1:
+                        for row, barcode in zip(uploaded_csv_reader, result):
+                            row.append(barcode)
+                            writer.writerow(row)
+                            barcode_pairs.append([row[0], row[-1]])
+                    else:
+                        # If the uploaded csv has two columns,
+                        # we know they're providing barcode, kit id pairs
+                        # We can just use the uploaded csv as is
+                        for row in uploaded_csv_reader:
+                            barcode_pairs.append(row)
+
+                else:
+                    for barcode in result:
+                        writer.writerow([kit_id, barcode])
+                        barcode_pairs.append([kit_id, barcode])
+
+                filename = file.name
+
+                csv_payload = {
+                        "barcodes": barcode_pairs,
+                        "kit_id": uploaded_csv_contents,
+                        "project_id": project_id
+                    }
+
+                status, results = APIRequest.post('/api/admin/insert_barcodes',
+                                                  json=csv_payload)
+
+                if status == 500:
+                    title = results[5:results.index('\n\n\n')].strip()
+                    raise Exception(f"500 error: {title}")
+
+            return send_file(filename,
+                             as_attachment=True,
+                             download_name='barcodes.csv')
+
+        elif user_barcode:
+            # If the user is providing a single barcode
+            user_barcode_payload = {
+                "barcodes": [[kit_id, user_barcode]],
+                "kit_id": kit_id,
+                "project_id": project_id
+            }
+
+            status, results = APIRequest.post('/api/admin/insert_barcodes',
+                                              json=user_barcode_payload)
+
+            # Provide a 500 error if the API request fails
+            # Most likely due to duplicate barcode
+            if status == 500:
+                title = results[5:results.index('\n\n\n')].strip()
+                raise Exception(f"500 error: {title}")
+
+            return render_template('add_barcode_to_kit.html',
+                                   barcodes=[user_barcode],
+                                   kit_id=kit_id,
+                                   **build_login_variables())
+        else:
+            # If the user is only generating a single barcode
+            single_barcode_generated_payload = {
+                "barcodes": [[kit_id, result[0]]],
+                "kit_id": kit_id,
+                "project_id": project_id
+            }
+
+            status, results = \
+                APIRequest.post('/api/admin/insert_barcodes',
+                                json=single_barcode_generated_payload)
+
+            if status == 500:
+                title = results[5:results.index('\n\n\n')].strip()
+                raise Exception(f"500 error: {title}")
+
+            return render_template('add_barcode_to_kit.html',
+                                   barcodes=result,
+                                   kit_id=kit_id,
+                                   **build_login_variables())
 
 
 def _check_sample_status(extended_barcode_info):

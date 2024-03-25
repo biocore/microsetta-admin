@@ -3,6 +3,10 @@
 
 <script src="/static/vendor/js/jquery.validate.min.js"></script>
 <script>
+    $.validator.addMethod("barcodePattern", function(value, element) {
+        return this.optional(element) || /^X\d{8}$/.test(value);
+    }, "Barcode must start with 'X' followed by 8 digits");
+
     $(document).ready(function(){
         // Initialize form validation on the registration form.
         // It has the name attribute "registration"
@@ -22,6 +26,30 @@
                 }
             }
         });
+
+        $("#num_samples, #num_kits").on("change", function() {
+            var numSamples = $("#num_samples").val();
+            var numKits = $("#num_kits").val();
+            var totalSamples = numSamples * numKits;
+            var newRows = "";
+            for (var i = 1; i <= totalSamples; i++) {
+                newRows += `<tr>
+                                <td><label for="barcode_${i}">Barcode ${i}: </label></td>
+                                <td><input type="text" name="barcode_${i}" id="barcode_${i}"></td>
+                            </tr>`;
+                            
+            }
+            if (totalSamples >= 1)
+                $("#barcode_rows").html(newRows);
+
+            for (var j = 1; j <= totalSamples; j++) {
+                $(`#barcode_${j}`).rules("add", {
+                    barcodePattern: true
+                });
+            }
+            validator.resetForm();
+            
+        });
     });
 </script>
 
@@ -34,14 +62,14 @@
         margin: 10px;
     }
 </style>
-<div style="height: 400px;">
+<div style="height: 600px;">
     {% if error_message %}
         <p style="color:red">
             {{ error_message |e }}
         </p>
     {% endif %}
 
-    <form name="kit_form" id="kit_form" method="POST">
+    <form name="kit_form" id="kit_form" method="POST" enctype="multipart/form-data">
         <table>
             <tr>
                 <td><label for="num_kits">Number of kits: </label></td>
@@ -80,6 +108,17 @@
         <script>
            document.agForm.num_kits.focus()
         </script>
+
+        <br>
+        <p>Or you can add your barcodes below</p>
+        <br>
+        <div id="barcode_rows"></div>
+        <tr>
+            <td><label for="upload_csv">Or upload a CSV file of Barcodes:</label></td>
+            <td><input type="file" name="upload_csv" id="upload_csv"></td>
+        </tr>
+        <br>
+        <td><input type="submit" name="insert_barcode" value="Add barcode(s) to kit"></td>
     </form>
 </div>
 {{blob}}

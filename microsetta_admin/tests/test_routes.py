@@ -1,5 +1,7 @@
+import csv
 import json
 from copy import deepcopy
+import tempfile
 
 from microsetta_admin.tests.base import TestBase
 
@@ -353,6 +355,37 @@ class RouteTests(TestBase):
         # a page reporting the error :)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Unable to create project.', response.data)
+
+    def test_create_insert_barcode_success(self):
+        self.mock_post.return_value = DummyResponse(201, {})
+
+        response = self.app.post('/add_barcode_to_kit',
+                                 data={'project_id': '1',
+                                       'num_kits': '1',
+                                       'kit_id': 'FBGBs',
+                                       'num_samples': '1',
+                                       'user_barcode': 'X11204416'},
+                                 follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'You added X11204416 to Kit ID FBGBs', response.data)
+
+    def test_create_insert_barcode_from_csv(self):
+        self.mock_post.return_value = DummyResponse(201, {})
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+            csv_writer = csv.writer(temp_file)
+            csv_writer.writerow(['FBGBs'])
+
+        with open(temp_file.name, 'rb') as f:
+            response = self.app.post('/add_barcode_to_kit',
+                                     data={'project_id': '1',
+                                           'num_kits': '1',
+                                           'kit_id': 'FBGBs',
+                                           'num_samples': '3',
+                                           'user_barcode': 'X11204416',
+                                           'upload_csv': (f, 'test.csv')},
+                                     follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
 
     def test_update_project_success(self):
         self.mock_put.return_value = DummyResponse(204, {})

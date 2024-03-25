@@ -1,0 +1,160 @@
+{% extends "sitebase.html" %}
+{% block head %}
+
+<script src="/static/vendor/js/jquery.validate.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js"></script>
+<script>
+    $.validator.addMethod("barcodePattern", function(value, element) {
+        return this.optional(element) || /^X\d{8}$/.test(value);
+    }, "Barcode must start with 'X' followed by 8 digits");
+
+    $(document).ready(function(){
+        // Initialize form validation on the registration form.
+        // It has the name attribute "registration"
+        $("form[name='kit_form']").validate({
+            // Specify validation rules
+            rules: {
+                // The key name on the left side is the name attribute
+                // of an input field. Validation rules are defined
+                // on the right side
+                project_id: "required",
+                num_kits: "required",
+                num_samples: "required",
+                user_barcode: {
+                    barcodePattern: true
+                },
+
+                // Make sure the form is submitted to the destination defined
+                // in the "action" attribute of the form when valid
+                submitHandler: function (form) {
+                    form.submit();
+                }
+            }
+        });
+
+        // Handle form submission
+        $("form[name='kit_form']").submit(function(event) {
+            // Check which button was clicked
+            var submitButton = $("input[type='submit'][clicked=true]").attr('name');
+
+            if (submitButton == 'upload') {
+                // Prevent default form submission
+                event.preventDefault();
+                // Manually submit the form
+                $("#kit_form").ajaxSubmit({
+                    success: function(response) {
+                        // Handle success response
+                        console.log(response);
+                    },
+                    error: function(xhr, status, error) {
+                        // Handle error response
+                        console.error(error);
+                    }
+                });
+            }
+        });
+
+        // Track which button was clicked
+        $("input[type='submit']").click(function() {
+            $("input[type='submit']", $(this).parents("form")).removeAttr("clicked");
+            $(this).attr("clicked", "true");
+        });
+    });
+
+    function setBarcodeFromList() {
+        var barcodeList = document.getElementById("barcodeList");
+        if (barcodeList && barcodeList.children.length > 0) {
+            var barcode = barcodeList.children[0].innerText;
+            document.getElementById("user_barcode").value = barcode;
+        }
+        else {
+            alert("No barcodes to generate");
+        }
+    }
+
+</script>
+
+{% endblock %}
+{% block content %}
+<h3>Add Barcode to Kit(s)</h3>
+<style>
+    select {
+        width: 250px;
+        margin: 10px;
+    }
+</style>
+<div style="height: 335px;">
+    {% if error_message %}
+        <p style="color:red">
+            {{ error_message |e }}
+        </p>
+    {% endif %}
+
+    <form name="kit_form" id="kit_form" method="POST" enctype="multipart/form-data">
+        <table>
+            <tr>
+                <td><label for="project_id">Project ID: </label></td>
+                <td><input type="number" name="project_id" id="project_id"></td>
+            </tr>
+            <tr>
+                <td><label for="num_kits">Number of kit(s): </label></td>
+                <td><input type="number" name="num_kits" id="num_kits" min="1"></td>
+            </tr>
+            <tr>
+                <td><label for="num_samples">Number of sample(s) per kit: </label></td>
+                <td><input type="number" name="num_samples" id="num_samples" min="1"></td>
+            </tr>
+            <tr>
+                <td><label for="kit_id">Kit ID: </label></td>
+                <td><input type="string" name="kit_id" id="kit_id"></td>
+            </tr>
+            <tr>
+                <td><label for="upload_csv">Or upload a CSV file of Kit IDs and/or Barcodes:</label></td>
+                <td><input type="file" name="upload_csv" id="upload_csv"></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td><input type="submit" name="upload" value="Upload CSV"></td>
+            </tr>
+            <tr>
+                
+                <td><label for="user_barcode">Enter barcode: </label></td>
+                <td>
+                    <input 
+                        type="text" 
+                        name="user_barcode" 
+                        id="user_barcode" 
+                        title="Barcode must start with 'X' followed by 8 digits" 
+                        maxlength="9"
+                    >
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td><input type="submit" name="insert_barcode" value="Add barcode(s) to kit"></td>
+            </tr>
+            <tr>
+                <td><label for="generate_barcode">Or generate barcode to add to kit: </label></td>
+                <td><input type="submit" name="insert_barcode" value="Generate barcode(s) to add to kit"></td>
+            </tr>
+        </table>
+        <br>
+        {% if barcodes %}
+            <ul>
+                {% for barcode in barcodes %}
+                    <span>You added {{ barcode }} to Kit ID {{ kit_id }}</span><br>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% if search_error %}
+            <p style="color:red">
+            {{search_error |e}}
+            </p>
+        {% endif %}
+        
+        <script>
+           document.agForm.num_kits.focus()
+        </script>
+    </form>
+</div>
+{% endblock %}
