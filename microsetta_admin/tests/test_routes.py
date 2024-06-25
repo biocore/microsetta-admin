@@ -203,9 +203,22 @@ class RouteTests(TestBase):
             "account": {'id': 'd8592c74-9694-2135-e040-8a80115d6401'}
         }
 
+        resp2 = {
+            "barcode_info": {"barcode": "000004216"},
+            "projects_info": [],
+            "scans_info": [],
+            "latest_scan": None,
+            "sample": {'site': 'baz'},
+            "source": {'name': 'a source a name',
+                       'source_type': 'human',
+                       'source_data': {'description': None}},
+            "account": {'id': 'd8592c74-9694-2135-e040-8a80115d6401'}
+        }
+
         api_get_1 = DummyResponse(200, resp1)
-        api_get_2 = DummyResponse(200, [])
-        self.mock_get.side_effect = [api_get_1, api_get_2]
+        api_get_2 = DummyResponse(200, resp2)
+        api_get_3 = DummyResponse(200, [])
+        self.mock_get.side_effect = [api_get_1, api_get_2, api_get_3]
 
         response = self.app.get('/scan?sample_barcode=000004216',
                                 follow_redirects=True)
@@ -232,9 +245,27 @@ class RouteTests(TestBase):
                        'source_data': {'description': None}},
         }
 
+        resp2 = {
+            "barcode_info": {"barcode": "000004216"},
+            "projects_info": [{
+                "project": "American Gut Project",
+                "is_microsetta": True,
+                "bank_samples": False,
+                "plating_start_date": None
+            }],
+            "scans_info": [],
+            "latest_scan": None,
+            "sample": {'datetime_collected': None},
+            "account": {'id': "ThizIzNotReal"},
+            "source": {'name': 'a source a name',
+                       'source_type': 'human',
+                       'source_data': {'description': None}},
+        }
+
         api_get_1 = DummyResponse(200, resp1)
-        api_get_2 = DummyResponse(200, [])
-        self.mock_get.side_effect = [api_get_1, api_get_2]
+        api_get_2 = DummyResponse(200, resp2)
+        api_get_3 = DummyResponse(200, [])
+        self.mock_get.side_effect = [api_get_1, api_get_2, api_get_3]
 
         response = self.app.get('/scan?sample_barcode=000004216',
                                 follow_redirects=True)
@@ -257,9 +288,23 @@ class RouteTests(TestBase):
                  "account": {"id": "foo"},
                  "source": None}
 
+        resp2 = {"barcode_info": {"barcode": "000004216"},
+                 "projects_info": [{
+                     "project": "American Gut Project",
+                     "is_microsetta": True,
+                     "bank_samples": False,
+                     "plating_start_date": None
+                 }],
+                 "scans_info": [],
+                 "latest_scan": None,
+                 "sample": None,
+                 "account": {"id": "foo"},
+                 "source": None}
+
         api_get_1 = DummyResponse(200, resp1)
-        api_get_2 = DummyResponse(200, [])
-        self.mock_get.side_effect = [api_get_1, api_get_2]
+        api_get_2 = DummyResponse(200, resp2)
+        api_get_3 = DummyResponse(200, [])
+        self.mock_get.side_effect = [api_get_1, api_get_2, api_get_3]
 
         response = self.app.get('/scan?sample_barcode=000004216',
                                 follow_redirects=True)

@@ -247,16 +247,22 @@ table
                                 <th class="bordered">Scan Timestamp</th>
                                 <th class="bordered">Sample Status</th>
                                 <th class="bordered">Technician Notes</th>
+                                <th class="bordered">Observations</th>
                             </tr>
                         </thead>
                         <tbody>
-                        {% for scan in scans_info %}
-                            <tr>
-                                <td class="bordered">{{ format_timestamp(scan['scan_timestamp']) }}</td>
-                                <td class="bordered">{{ scan['sample_status'] }}</td>
-                                <td class="bordered">{{ scan['technician_notes'] }}</td>
-                            </tr>
-                        {% endfor %}
+                            {% for scan in scans_info %}
+                                <tr>
+                                    <td class="bordered">{{ format_timestamp(scan['scan_timestamp']) }}</td>
+                                    <td class="bordered">{{ scan['sample_status'] }}</td>
+                                    <td class="bordered">{{ scan['technician_notes'] }}</td>
+                                    <td class="bordered"> 
+                                        {% for observation in scan['observations'] %}
+                                            {{ observation }}{% if not loop.last %},{% endif %}
+                                        {% endfor %}
+
+                                </tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                     {% else %}
@@ -305,6 +311,19 @@ table
                 </td>
             </tr>
             <!-- End collapsible email template fields -->
+            {% if observations %}
+                <tr>
+                    <td>Observations:</td>
+                    <td>
+                        {% for observation in observations %}
+                            <b>{{ observation['category'] }}</b><br>
+                            <input type="checkbox" id="{{ observation['observation_id'] }}" name="observation_id" value="{{ observation['observation_id'] }}">
+                            <label for="{{ observation['observation_id'] }}">{{ observation['observation'] }}</label><br>
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endif %}
+
             <tr>
                 <td>Technician Notes: </td>
                 <td>
