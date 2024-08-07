@@ -1,3 +1,5 @@
+import csv
+import tempfile
 import jwt
 from flask import render_template, Flask, request, session, send_file, url_for
 import secrets
@@ -512,19 +514,37 @@ def new_kits():
                                **build_login_variables())
 
     elif request.method == 'POST':
-        num_kits = int(request.form['num_kits'])
-        num_samples = int(request.form['num_samples'])
         prefix = request.form['prefix']
         selected_project_ids = request.form.getlist('project_ids')
-        payload = {'number_of_kits': num_kits,
-                   'number_of_samples': num_samples,
-                   'project_ids': selected_project_ids}
+        num_kits = request.form['number_of_kits']
+        num_samples = request.form['number_of_samples']
+        generate_barcodes = request.form.get('generate_barcodes_1')
+
+        barcodes = []
+
+        barcode_file = request.files.get('upload_csv')
+
+        if barcode_file:
+            barcode_file = barcode_file.read().decode('utf-8')
+            barcodes = [line.split(',')[0].strip('\ufeff\r')
+                        for line in barcode_file.split('\n')
+                        if line.strip()]
+
+        payload = {
+            'action': 'create' if not barcodes else 'insert',
+            'project_ids': selected_project_ids,
+            'number_of_kits': int(num_kits),
+            'number_of_samples': int(num_samples),
+            'generate_barcodes': generate_barcodes
+        }
+
         if prefix:
             payload['kit_id_prefix'] = prefix
+        if barcodes:
+            payload['barcodes'] = barcodes
 
-        status, result = APIRequest.post(
-                '/api/admin/create/kits',
-                json=payload)
+        status, result = APIRequest.post('/api/admin/create/kits',
+                                         json=payload)
 
         if status != 201:
             return render_template('create_kits.html',
@@ -532,15 +552,17 @@ def new_kits():
                                    projects=projects,
                                    **build_login_variables())
 
-        # StringIO/BytesIO based off https://stackoverflow.com/a/45111660
         buf = io.StringIO()
         payload = io.BytesIO()
 
-        # explicitly expand out the barcode detail
         kits = pd.DataFrame(result['created'])
-        for i in range(num_samples):
-            kits['barcode_%d' % (i+1)] = [r['sample_barcodes'][i]
-                                          for _, r in kits.iterrows()]
+
+        for kit_index, row in kits.iterrows():
+            sample_barcodes = row['sample_barcodes']
+            for sample_index in range(len(sample_barcodes)):
+                kits.at[kit_index, f'barcode_{sample_index + 1}'] = \
+                        sample_barcodes[sample_index]
+
         kits.drop(columns='sample_barcodes', inplace=True)
 
         kits.to_csv(buf, sep=',', index=False, header=True)
@@ -554,6 +576,126 @@ def new_kits():
         return send_file(payload, as_attachment=True,
                          download_name=fname,
                          mimetype='text/csv')
+
+
+@app.route('/add_barcode_to_kit', methods=['GET', 'POST'])
+def new_barcode_kit():
+
+    if request.method == 'GET':
+        return render_template('add_barcode_to_kit.html',
+                               **build_login_variables())
+
+    elif request.method == 'POST':
+        kit_ids = []
+        barcodes = []
+
+        if 'kit_ids' in request.form:
+            kit_ids = request.form['kit_ids']
+
+        if 'user_barcode' in request.form:
+            user_barcode = request.form['user_barcode']
+            barcodes.append(user_barcode)
+
+        if 'generate_barcode_single' in request.form:
+            generate_barcode_single = request.form['generate_barcode_single']
+        else:
+            generate_barcode_single = None
+
+        if 'generate_barcodes_multiple' in request.form:
+            generate_barcodes_multiple = request.form
+            ['generate_barcodes_multiple']
+        else:
+            generate_barcodes_multiple = None
+
+        if 'kit_ids' in request.files:
+            kit_ids_file = request.files['kit_ids']
+            kit_ids_content = kit_ids_file.read().decode('utf-8-sig')
+            kit_ids = [row[0] for row in csv.reader(io.StringIO
+                                                    (kit_ids_content),
+                                                    skipinitialspace=True)]
+
+        if 'barcodes_file' in request.files:
+            barcodes_file = request.files['barcodes_file']
+            barcodes_content = barcodes_file.read().decode('utf-8-sig')
+            barcodes = [row[0] for row in csv.reader(io.StringIO
+                                                     (barcodes_content),
+                                                     skipinitialspace=True)]
+
+        if generate_barcode_single or 'user_barcode' in request.form:
+            if user_barcode == '':
+                generate_barcode_payload = {
+                    'action': 'create',
+                    'kit_ids': kit_ids,
+                    'generate_barcode_single': generate_barcode_single
+                }
+
+                status, result = APIRequest.post('/api/admin/add_barcodes',
+                                                 json=generate_barcode_payload)
+                if status == 500:
+                    title = result[5:result.index('\n\n\n')].strip()
+                    raise Exception(f"500 error: {title}")
+            else:
+                result = barcodes
+
+            user_barcode_payload = {
+                "action": "insert",
+                "barcodes": [result[0]],
+                "kit_ids": kit_ids
+            }
+            status, results = APIRequest.post('/api/admin/add_barcodes',
+                                              json=user_barcode_payload)
+            if status == 500:
+                title = results[5:results.index('\n\n\n')].strip()
+                raise Exception(f"500 error: {title}")
+
+            return render_template('add_barcode_to_kit.html',
+                                   barcodes=result,
+                                   kit_id=kit_ids,
+                                   **build_login_variables())
+
+        if generate_barcodes_multiple:
+            generate_barcode_payload = {
+                'action': 'create',
+                'kit_ids': kit_ids,
+                'generate_barcodes_multiple': generate_barcodes_multiple
+            }
+            status, result = APIRequest.post('/api/admin/add_barcodes',
+                                             json=generate_barcode_payload)
+            if status == 500:
+                title = result[5:result.index('\n\n\n')].strip()
+                raise Exception(f"500 error: {title}")
+
+            barcodes = result
+        if len(kit_ids) != len(barcodes):
+            error_message = (f'The number of kit IDs ({len(kit_ids)}) '
+                             f'does not match the number of barcodes '
+                             f'({len(barcodes)}).')
+            return render_template('add_barcode_to_kit.html',
+                                   error_message=error_message,
+                                   **build_login_variables())
+
+        csv_payload = {
+            "action": "insert",
+            "barcodes": barcodes,
+            "kit_ids": kit_ids
+        }
+
+        status, results = APIRequest.post('/api/admin/add_barcodes',
+                                          json=csv_payload)
+        if status == 500:
+            title = results[5:results.index('\n\n\n')].strip()
+            raise Exception(f"500 error: {title}")
+
+        with tempfile.NamedTemporaryFile(mode='w', delete=False,
+                                         newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Kit IDs', 'Barcode'])
+            writer.writerows(zip(kit_ids, barcodes))
+            filename = file.name
+
+        return send_file(filename,
+                         as_attachment=True,
+                         download_name='barcodes.csv')
 
 
 def _check_sample_status(extended_barcode_info):
