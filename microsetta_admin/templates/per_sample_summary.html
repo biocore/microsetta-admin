@@ -27,36 +27,51 @@
 {% block content %}
 <h3>Sample Summaries</h3>
 <hr class="dashed">
-<h5>Retrieve summary for a single sample</h5>
+{% if error_message %}
+<p style="color:red">
+    {{ error_message |e }}
+</p>
+{% endif %}
 <div style="height: 400px; width: 400px">
-    {% if error_message %}
-        <p style="color:red">
-            {{ error_message |e }}
-        </p>
-    {% endif %}
-    <form name="search_form" id="search_form" method="GET">
-        <table width=100% border=0>
-        <tr>
-            <td colspan=3 style="text-align:left;padding:4px"> <input type="text" name="sample_barcode" placeholder="Enter barcode here" id="sample_barcode" {% if info %} value="{{info.barcode}}"{% endif %}> </td>
-            <td colspan=1 style="text-align:right;padding:4px"> <input type="submit" value="Retrieve"> </td>
-        </tr>
-        </table>
-        <script> document.search_form.sample_barcode.focus() </script>
-    </form>
-    <hr class="dashed">
-    <h5>Retrieve summaries using a csv file</h5>
-    <form name="upload_csv" id="search_csv" method="POST" enctype="multipart/form-data" onsubmit="return remove_error_messages()">
+    <h5>Retrieve summary for a sample</h5>
+    <form name="search_form" id="search_form" method="POST" enctype="multipart/form-data" onsubmit="return remove_error_messages()">
         <table width=100% border=0>
             <tr>
-                <td colspan=3 style="text-align:left;padding:4px"><input type=file name=file></td>
-                <td colspan=1 style="text-align:right;padding:4px"><input type=submit value=Upload></td>
+                <td colspan=3 style="text-align:left;padding:4px">
+                    <label for="search_field">Select search field:</label>
+                    <select id="search_field" name="search_field" onchange="toggleInputType()">
+                        <option value="sample_barcode">Barcode</option>
+                        <option value="kit_id">Kit ID</option>
+                        <option value="email">Email</option>
+                        <option value="outbound_tracking">Outbound Tracking Number</option>
+                        <option value="inbound_tracking">Inbound Tracking Number</option>
+                    </select>
+                </td>
+            </tr>
+            <tr id="text_input_row" style="display: table-row;">
+                <td colspan=3 style="text-align:left;padding:4px">
+                    <input type="text" name="text_input" placeholder="Enter value here" id="text_input">
+                </td>
+                <td colspan=1 style="text-align:right;padding:4px">
+                    <input type="submit" value="Retrieve">
+                </td>
+            </tr>
+            <tr id="csv_upload_row" style="display: none;">
+                <td colspan=3 style="text-align:left;padding:4px">
+                    <input type="file" name="file" id="file">
+                </td>
+                <td colspan=1 style="text-align:right;padding:4px">
+                    <input type="submit" value="Upload">
+                </td>
             </tr>
             <tr><td colspan=4></td></tr>
-            <tr><td colspan=4 style="text-align:center;padding:4px"><i>Barcodes must be listed in column "sample_name"<br>(max: 1000)</i> </td></tr>
+            <tr><td colspan=4 style="text-align:center;padding:4px"><i>The selected search field must be in column "<span id="csv_column_name">sample_name</span>"<br>(max: 1000)</i> </td></tr>
             <tr><td colspan=4></td></tr>
             <tr>
-                <td colspan=3> <label for="strip_sampleid"> Check to remove sample IDs from summary</label> </td>
-                <td colspan=1 style="text-align:center;padding:4px"> <input type="checkbox" id="strip_sampleid" name="strip_sampleid"> </td>
+                <td colspan=3><label for="strip_sampleid">Check to remove sample IDs from summary</label></td>
+                <td colspan=1 style="text-align:center;padding:4px">
+                    <input type="checkbox" id="strip_sampleid" name="strip_sampleid">
+                </td>
             </tr>
         </table>
     </form>
