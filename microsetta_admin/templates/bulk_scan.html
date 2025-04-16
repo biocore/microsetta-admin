@@ -1,0 +1,253 @@
+{% extends "sitebase.html" %}
+{% block head %}
+<link rel="stylesheet" type="text/css" href="/static/css/table_style.css">
+<script type="text/javascript" language="javascript" src="/static/js/ruleset.js"></script>
+<script>
+    var clicked = false;
+    function call_dialog()
+    {
+        document.getElementById('file_picker').click();
+    }
+
+    function showSummary(event)
+    {
+        if(!clicked)
+        {
+            document.getElementById("tubeCode").innerHTML = event.target.children[0].innerHTML;
+            document.getElementById("barcode_fld").value = event.target.children[0].innerHTML;
+            var val = "Project: " + event.target.children[1].innerHTML;
+            val += "<br>Status: " + event.target.children[2].innerHTML;
+            val += "<br>Source: " + event.target.children[3].innerHTML;
+            document.getElementById("codeDetails").innerHTML = val;
+            document.getElementById("summaryView").style.display = "block";
+            document.getElementById('recorded_type').value = event.target.children[3].innerHTML;
+            document.getElementById('sample_status').value = event.target.children[2].innerHTML;
+            document.getElementById("tubeCode").href = "/scan?sample_barcode=" + event.target.children[0].innerHTML;
+        }
+
+    }
+
+    function hideSummary()
+    {
+        if(!clicked)
+        {
+            document.getElementById("summaryView").style.display = "none";
+        }
+    }
+
+    function toggleSummary()
+    {
+        if(clicked)
+        {
+            clicked = false;
+            hideSummary();
+        }
+        else
+        {
+            clicked = true;
+        }
+    }
+
+    function showNotesField()
+    {
+        document.getElementById("summaryView").style.height = "40vh";
+        document.getElementById('btnNotes').style.display = "none";
+        document.getElementById("notesBox").style.display = "block";
+        document.getElementById('btnAddNotes').style.display = "block";
+    }
+
+    function hideNotesField()
+    {
+        document.getElementById("summaryView").style.height = "27vh";
+        document.getElementById('btnNotes').style.display = "block";
+        document.getElementById("btnNotes").value = "Notes Saved Edit/View?";
+        document.getElementById("notesBox").style.display = "none";
+        document.getElementById('btnAddNotes').style.display = "none";
+    }
+
+</script>
+<style>
+    .legends{
+        border: 2px solid black;
+        border-collapse: collapse;
+    }
+
+    .data_table{
+        width: 50%;
+        border: 2px solid black;
+        border-collapse: collapse;
+    }
+
+    .data_table > tbody > tr > td, .data_table > tbody > tr > th{
+        border: 1px solid black;
+        text-align: center;
+        width: 100px;
+    }
+
+    .data_table > tbody > tr > td{
+        color: white;
+    }
+
+    #summaryView{
+        display: none;
+        width: 50%;
+        height: 25vh;
+        border: 2px solid black;
+        padding: 2% 2% 2% 2%;
+        margin-top: 2%;
+        margin-left: 2%;
+    }
+
+    #tubeCode{
+        text-decoration: underline;
+    }
+
+    #notesBox{
+        display: none;
+    }
+
+    #btnAddNotes{
+        display: none;
+    }
+
+    .statusBar{
+        text-align: center;
+    }
+
+    .statusBar > p{
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+
+</style>
+{% endblock %}
+{% block content %}
+<h3>Microsetta Scan - Bulk</h3>
+
+{% if stage == "Scanning" %}
+<div>
+    <form method="POST" action="/scan-bulk" enctype="multipart/form-data">
+        <table>
+            <tr>
+                <td><label for="file_picker">Import .csv:     </label></td>
+                <td><input type="file" name="file_picker" id="file_picker" accept=".csv" required></td>
+                <td>
+                    <input type="hidden" name="stage" value="Scanning">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="sort_criteria">Sort By: </label></td>
+                <td>
+                    <select name="sort_criteria" required>
+                        <option value="Project">Sample Project</option>
+                        <option value="Sample Status">Sample Status</option>
+                        <option value="Sample Site">Sample Type</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><input type="submit" name="submit" id="submit" value="Scan Now"></td>
+            </tr>
+        </table>
+    </form>
+
+
+    <br>
+</div>
+{% endif %}
+
+{% if stage == "Visualization" %}
+<div>
+    <form method="POST" action="/scan-bulk" enctype="multipart/form-data">
+        <table>
+            <tr><td>.csv file name: {{ filename }}</td></tr>
+            <tr>
+                <td>
+                    <b>Sort By: </b>
+                    <select name="sort_criteria">
+                        <option value="Project">Sample Project</option>
+                        <option value="Sample Status">Sample Status</option>
+                        <option value="Sample Site">Sample Type</option>
+                    </select>
+                    <input type="hidden" name="stage" value="Visualization">
+                    <input type="hidden" name="scanned_file" value="{{filename}}">
+                    <input type="hidden" name="scanned_samples" value="{{samples}}">
+                    <input type="submit" name="submit" id="submit" value="View">
+                </td>
+            </tr>
+        </table>
+    </form>
+    <br>
+    <b><u>Legend</u></b>
+    <br><br>
+    <table class="legends">
+        <tr>
+            <th colspan="2">Project {{ data }}</th>
+        </tr>
+    {% for key, value in legends.items() %}
+        <tr>
+            <td bgcolor="{{value}}" width="25%"> </td>
+            <td>{{key}}</td>
+        </tr>
+     {% endfor %}
+    </table>
+    <br>
+    <table class="data_table">
+        <tr>
+            <th>Plate#</th>
+            {% for index in table["A"] %}
+                <th>{{ loop.index }}</th>
+            {% endfor %}
+        </tr>
+        {% for key, value in table.items() %}
+            <tr>
+                <th>{{ key }}</th>
+                {% for obj in value %}
+                    <td bgcolor="{{obj[1]}}" onmouseover="showSummary(event)" onmouseout="hideSummary()" onclick="toggleSummary()">
+                        {{ obj[0] }}
+                        <span hidden="hidden">{{ obj[0] }}</span>
+                        <span hidden="hidden">{{ obj[2] }}</span>
+                        <span hidden="hidden">{{ obj[3] }}</span>
+                        <span hidden="hidden">{{ obj[4] }}</span>
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+    <br>
+    <div class="statusBar">
+        {% if 'Success' in message %}
+            <p style="color:green">{{ message }}</p>
+        {% endif %}
+        {% if 'Error' in message %}
+            <p style="color:red">{{ message }}</p>
+        {% endif %}
+    </div>
+    
+</div>
+{% endif %}
+
+<div id="summaryView">
+    <a href="/scan" id="tubeCode" target="_blank"></a><br>
+    <span id="codeDetails"></span><br>
+    <form method="POST" action="/scan-bulk">
+        <input type="text" value="" hidden="hidden" name="sample_barcode" id="barcode_fld"><br>
+        <input type="hidden" name="stage" value="Sample_Scan">
+        <input type="hidden" name="recorded_type" id="recorded_type" value="'">
+        <input type="hidden" name="scanned_samples" value="{{samples}}">
+        <input type="button" value="Notes" onclick="showNotesField()" id="btnNotes"><br>
+        <textarea name="technician_notes" rows="3" cols="15" id="notesBox"></textarea><br>
+        <input type="button" value="Add" id="btnAddNotes" onclick="hideNotesField()">
+        <br>
+        <select name="sample_status" id="sample_status">
+            {% for status in status_options %} 
+                <option value="{{status}}">{{status}}</option>
+            {% endfor %}
+        </select>
+        <input type="checkbox" name="send_email" checked><br>
+        <input type="submit" value="Add Scan">
+    </form>
+</div>
+
+{% endblock %}
+
