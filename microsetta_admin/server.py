@@ -554,18 +554,25 @@ def new_kits():
             if barcode_file:
                 # Barcodes provided for this slot
                 barcodes = _read_csv_file(barcode_file)
+                slot_payload = {
+                    'barcodes_provided': True,
+                    'barcodes': barcodes
+                }
             else:
                 # Generate barcodes for this slot
-                barcodes = []
+                slot_payload = {
+                    'barcodes_provided': False,
+                    'barcodes': []
+                }
 
             # Add this slot's barcodes (or empty list) to the container
-            barcodes_container.append(barcodes)
+            barcodes_container.append(slot_payload)
 
         payload = {
             'number_of_kits': num_kits,
             'number_of_samples': num_samples,
             'project_ids': selected_project_ids,
-            'barcodes': barcodes_container
+            'barcodes_container': barcodes_container
         }
 
         if prefix:
