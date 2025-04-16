@@ -1,86 +1,129 @@
 {% extends "sitebase.html" %}
 {% block head %}
-
 <script src="/static/vendor/js/jquery.validate.min.js"></script>
 <script>
     $(document).ready(function(){
-        // Initialize form validation on the registration form.
-        // It has the name attribute "registration"
         $("form[name='kit_form']").validate({
-            // Specify validation rules
             rules: {
-                // The key name on the left side is the name attribute
-                // of an input field. Validation rules are defined
-                // on the right side
-                num_kits: "required",
-                num_samples: "required",
+                number_of_kits: "required",
+                number_of_samples: "required",
                 project_ids: "required",
-                // Make sure the form is submitted to the destination defined
-                // in the "action" attribute of the form when valid
                 submitHandler: function (form) {
                     form.submit();
                 }
             }
         });
+
+        function adjustContainerHeight() {
+            var numSamples = $("#number_of_samples").val();
+            var containerHeight = 400 + (numSamples * 190);
+            $("#kit_container").css("height", containerHeight + "px");
+        }
+
+        function toggleDisableOptions() {
+            $(".sample-section").each(function() {
+                var $uploadCsvInput = $(this).find("input[type='file']");
+                var $generateBarcodesCheckbox = $(this).find("input[type='checkbox']");
+                
+                $uploadCsvInput.on("change", function() {
+                    if ($(this).val()) {
+                        $generateBarcodesCheckbox.prop("disabled", true);
+                    } else {
+                        $generateBarcodesCheckbox.prop("disabled", false);
+                    }
+                });
+
+                $generateBarcodesCheckbox.on("change", function() {
+                    if ($(this).is(":checked")) {
+                        $uploadCsvInput.prop("disabled", true);
+                    } else {
+                        $uploadCsvInput.prop("disabled", false);
+                    }
+                });
+            });
+        }
+
+        $("#number_of_samples, #number_of_kits").on("change", function() {
+            var numSamples = $("#number_of_samples").val();
+            var numKits = $("#number_of_kits").val();
+            var newSections = "";
+            for (var j = 1; j <= numSamples; j++) {
+                newSections += `<div class="sample-section">
+                                    <h4>Sample ${j}</h4>
+                                    <p>Upload CSV with ${numKits} row(s) of barcode(s) for this sample:</p>
+                                    <label for="upload_csv_${j}">Barcodes:</label>
+                                    <input type="file" name="upload_csv_${j}" id="upload_csv_${j}">
+                                    <br />
+                                    <center>-- OR --</center>
+                                    <br />
+                                    <label for="generate_barcodes_sample_${j}">Generate Barcodes:</label>
+                                    <input type="checkbox" name="generate_barcodes_sample_${j}" id="generate_barcodes_sample_${j}">
+                                </div>`;
+            }
+            $("#sample_sections").html(newSections);
+            adjustContainerHeight();
+            toggleDisableOptions();
+        });
+
+        $("#number_of_samples").val(1).trigger('change');
+        $("#number_of_kits").val(1).trigger('change');
     });
 </script>
-
-{% endblock %}
-{% block content %}
-<h3>Microsetta Create Kits</h3>
 <style>
     select {
         width: 250px;
         margin: 10px;
     }
+    .kit-section {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 20px 0;
+    }
+    .sample-section {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+    }
 </style>
-<div style="height: 400px;">
+{% endblock %}
+{% block content %}
+<h3>Microsetta Create Kits</h3>
+<div id="kit_container" style="height: 600px;">
     {% if error_message %}
         <p style="color:red">
             {{ error_message |e }}
         </p>
     {% endif %}
 
-    <form name="kit_form" id="kit_form" method="POST">
+    <form name="kit_form" id="kit_form" method="POST" enctype="multipart/form-data">
         <table>
             <tr>
-                <td><label for="num_kits">Number of kits: </label></td>
-                <td><input type="number" name="num_kits" id="num_kits" min="1"></td>
+                <td><label for="number_of_kits">Number of kits: </label></td>
+                <td><input type="number" name="number_of_kits" id="number_of_kits" min="1"></td>
             </tr>
             <tr>
-                <td><label for="num_samples">Samples per kit: </label></td>
-                <td><input type="number" name="num_samples" id="num_samples" min="1"></td>
+                <td><label for="number_of_samples">Samples per kit: </label></td>
+                <td><input type="number" name="number_of_samples" id="number_of_samples" min="1" value="1"></td>
             </tr>
             <tr>
                 <td><label for="prefix">Kit name prefix (optional): </label></td>
-                <td><input type="text" name="prefix" id="prefix" ></td>
+                <td><input type="text" name="prefix" id="prefix"></td>
             </tr>
             <tr>
                 <td><label for="project_ids">Projects: </label></td>
                 <td><select id="project_ids" name="project_ids" multiple class="chosen-select" size=10>
                     {% if projects %}
                     {% for p in projects %}
-
                     <option value='{{p['project_id']}}'>{{p['project_name']}}</option>
-
                     {% endfor %}
                     {% endif %}
                 </select></td>
             </tr>
-            <tr>
-                <td></td>
-                <td><input type="submit" value="Create kits"></td>
-            </tr>
         </table>
-        {% if search_error %}
-            <p style="color:red">
-            {{search_error |e}}
-            </p>
-        {% endif %}
-        <script>
-           document.agForm.num_kits.focus()
-        </script>
+        <br>
+        <div id="sample_sections"></div>
+        <br>
+        <input type="submit" value="Create kits">
     </form>
 </div>
-{{blob}}
 {% endblock %}

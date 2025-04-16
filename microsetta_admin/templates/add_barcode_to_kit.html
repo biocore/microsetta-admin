@@ -1,0 +1,221 @@
+{% extends "sitebase.html" %}
+{% block head %}
+<script src="/static/vendor/js/jquery.validate.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js"></script>
+<script>
+    $(document).ready(function(){
+        // Initialize form validation
+        $("form[name='single_kit_form']").validate({
+            rules: {
+                kit_id: "required",
+                user_barcode: {
+                    required: function(element) {
+                        return !$("#generate_barcode_single").is(':checked');
+                    }
+                }
+            },
+            submitHandler: function (form) {
+                form.submit();
+            }
+        });
+
+        $("form[name='multiple_kits_form']").validate({
+            rules: {
+                kit_ids: "required",
+                barcodes_file: {
+                    required: function(element) {
+                        return !$("#generate_barcodes_multiple").is(':checked');
+                    }
+                }
+            },
+            submitHandler: function (form) {
+                form.submit();
+            }
+        });
+
+        function clearMessages() {
+            $('#error_message').text("");
+            $('#success_message').empty();
+        }
+
+        // Toggle form visibility
+        $('#single_kit_button').click(function() {
+            $('#single_kit_form').show();
+            $('#multiple_kits_form').hide();
+            clearMessages();
+        });
+        $('#multiple_kits_button').click(function() {
+            $('#multiple_kits_form').show();
+            $('#single_kit_form').hide();
+            clearMessages();
+        });
+
+        $("#generate_barcode_single").on("change", function() {
+            if ($(this).is(":checked")) {
+                $("#user_barcode").prop("disabled", true);
+            } else {
+                $("#user_barcode").prop("disabled", false);
+            }
+        });
+
+        $("#user_barcode").on("input", function() {
+            if ($(this).val().length > 0) {
+                $("#generate_barcode_single").prop("disabled", true);
+            } else {
+                $("#generate_barcode_single").prop("disabled", false);
+            }
+        });
+
+        $("#generate_barcodes_multiple").on("change", function() {
+            if ($(this).is(":checked")) {
+                $("#barcodes_file").prop("disabled", true);
+            } else {
+                $("#barcodes_file").prop("disabled", false);
+            }
+        });
+
+        $("#barcodes_file").on("change", function() {
+            if ($(this).val()) {
+                $("#generate_barcodes_multiple").prop("disabled", true);
+            } else {
+                $("#generate_barcodes_multiple").prop("disabled", false);
+            }
+        });
+
+        $("input[type='submit']").click(function() {
+            $("input[type='submit']", $(this).parents("form")).removeAttr("clicked");
+            $(this).attr("clicked", "true");
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<h3>Add Barcode(s) to Kit(s)</h3>
+<div style="height: 335px;">
+    {% if error_message %}
+        <p id="error_message" style="color:red">
+            {{ error_message |e }}
+        </p>
+    {% endif %}
+
+    <button id="single_kit_button">Add Barcode to Single Kit</button>
+    <button id="multiple_kits_button">Add Barcodes to Multiple Kits</button>
+
+    <form name="single_kit_form" id="single_kit_form" method="POST" style="display:none;">
+        <table>
+            <tr>
+                <td colspan="2">
+                    <br />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="kit_id" style="margin: auto;">Kit ID: </label>
+                </td>
+                <td>
+                    <input type="text" name="kit_id" id="kit_id" required>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <hr style="width: 100%" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="user_barcode" style="margin: auto;">Enter Barcode: </label>
+                </td>
+                <td>
+                    <input type="text" name="user_barcode" id="user_barcode">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center; padding-top: 10px; padding-bottom: 10px;">
+                    -- OR --
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="generate_barcode_single" style="margin: auto;">Generate Barcode: </label>
+                </td>
+                <td>
+                    <input type="checkbox" name="generate_barcode_single" id="generate_barcode_single">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <hr style="width: 100%" />
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center;">
+                    <input type="submit" name="add_single_barcode" value="Add Barcode">
+                </td>
+            </tr>
+        </table>
+    </form>
+    {% if barcodes %}
+        <ul id="success_message">
+            {% for barcode in barcodes %}
+                <span>You added {{ barcode }} to Kit ID {{ kit_id }}</span><br>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <form name="multiple_kits_form" id="multiple_kits_form" method="POST" enctype="multipart/form-data" style="display:none;">
+        <table>
+            <tr>
+                <td colspan="2">
+                    <br />
+                    Upload comma-separated value file(s) (CSV)
+                    <br /><br />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="kit_ids" style="margin: auto;">Kit IDs: </label>
+                </td>
+                <td>
+                    <input type="file" name="kit_ids" id="kit_ids" required>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <hr style="width: 100%" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="barcodes_file" style="margin: auto;">Barcodes: </label>
+                </td>
+                <td>
+                    <input type="file" name="barcodes_file" id="barcodes_file">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center; padding-top: 10px; padding-bottom: 10px;">
+                    -- OR --
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="generate_barcodes_multiple" style="margin: auto;">Generate Barcodes: </label>
+                </td>
+                <td>
+                    <input type="checkbox" name="generate_barcodes_multiple" id="generate_barcodes_multiple">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <hr style="width: 100%" />
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center;">
+                    <input type="submit" name="add_multiple_barcodes" value="Add Barcodes">
+                </td>
+            </tr>
+        </table>
+    </form>
+</div>
+{% endblock %}
