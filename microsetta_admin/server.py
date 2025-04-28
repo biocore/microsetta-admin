@@ -386,7 +386,7 @@ def per_sample_summary():
                          'no-associated-source', 'no-collection-info',
                          'no-registered-account', 'received-unknown-validity',
                          'ffq-taken', 'ffq-complete', 'vioscreen_username',
-                         'kit-id', 'outbound-tracking',
+                         'kit-id', 'box-id', 'outbound-tracking',
                          'inbound-tracking', 'daklapack-order-id'
                          ]
                 order.extend(sorted(set(resource.columns) - set(order)))
@@ -454,7 +454,7 @@ def per_sample_summary():
                          'no-associated-source', 'no-collection-info',
                          'no-registered-account', 'received-unknown-validity',
                          'ffq-taken', 'ffq-complete', 'vioscreen_username',
-                         'kit-id', 'outbound-tracking',
+                         'kit-id', 'box-id', 'outbound-tracking',
                          'inbound-tracking', 'daklapack-order-id'
                          ]
                 order.extend(sorted(set(resource.columns) - set(order)))
