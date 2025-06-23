@@ -144,7 +144,32 @@
 {{ error_message }}
 {% endautoescape %}
 
-{% elif success_submissions or failure_submissions %}
+{% elif success_submissions or failure_submissions or hold_submissions_list %}
+    {%  if hold_submissions_list|length > 0 %}
+<p>
+The following addresses are incomplete and NOT submitted to Daklapack.
+The required fields missing are displayed below.
+Please fill in all fields except for `insertion` and `address2`, then re-submit.
+</p>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Required Field(s) Missing</th>
+            <th>Address</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for hold_submission in hold_submissions_list %}
+        <tr>
+            <td>{{ hold_submission['missing_columns'] }}</td>
+            <td>{{ hold_submission['address_dict'] }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<br>
+    {% endif %}
+
     {%  if failure_submissions|length > 0 %}
 <p>
 The following orders were NOT successfully submitted to Daklapack.
@@ -168,6 +193,7 @@ Please correct any errors and then re-submit.
     {% endfor %}
     </tbody>
 </table>
+<br>
     {% endif %}
 
     {%  if success_submissions|length > 0 %}

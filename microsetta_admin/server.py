@@ -966,45 +966,79 @@ def post_submit_daklapack_order():
                             f"not match expected column names"
                             f" {expected_headers}")
 
+    # disregard empty rows
+    addresses_df = addresses_df.dropna(how='all').copy()
+
     # add (same) contact phone number to every address
     addresses_df['phone'] = phone_number
 
-    addresses_df = addresses_df.fillna("")
-    temp_dict = addresses_df.to_dict(orient='index')
-    addresses_list = [temp_dict[n] for n in range(len(temp_dict))]
-
-    status, post_output = APIRequest.post(
-        '/api/admin/daklapack_orders',
-        json={
-            "project_ids": project_ids_list,
-            "article_code": dak_article_code,
-            "quantity": article_quantity,
-            "addresses": addresses_list,
-            "shipping_provider": shipping_provider,
-            "shipping_type": shipping_type,
-            "planned_send_date": planned_send_date,
-            "description": description,
-            "fedex_ref_1": fedex_ref_1,
-            "fedex_ref_2": fedex_ref_2,
-            "fedex_ref_3": fedex_ref_3
-        }
+    # validate spreadsheet rows
+    empty_field_criteria = (
+        addresses_df
+        .drop(columns=['insertion', 'address2'])
+        .isna()
+        .any(axis=1)
     )
 
-    # if the post failed, keep track of the error so it can be displayed
-    if status != 200:
-        error_message = post_output
+    # display missing columns for incomplete addresses
+    hold_submissions_addresses = addresses_df[empty_field_criteria]
+    hold_submissions = pd.DataFrame({
+        'missing_columns': hold_submissions_addresses.apply(
+            lambda ser: ', '.join(
+                ser.index[ser.isna()]  # find null fields
+                .drop(['insertion', 'address2'], errors='ignore')
+            ),
+            axis=1
+        ),
+        'address_dict': hold_submissions_addresses.fillna("").apply(
+            lambda ser: ser.to_dict(),
+            axis=1
+        )
+    })
+    hold_submissions_list = hold_submissions.to_dict(orient='records')
+
+    # prepare addresses for submission
+    addresses_df = addresses_df[~empty_field_criteria].fillna("")
+    addresses_list = addresses_df.to_dict(orient='records')
+
+    # skip API call if no valid address
+    if addresses_list:
+        status, post_output = APIRequest.post(
+            '/api/admin/daklapack_orders',
+            json={
+                "project_ids": project_ids_list,
+                "article_code": dak_article_code,
+                "quantity": article_quantity,
+                "addresses": addresses_list,
+                "shipping_provider": shipping_provider,
+                "shipping_type": shipping_type,
+                "planned_send_date": planned_send_date,
+                "description": description,
+                "fedex_ref_1": fedex_ref_1,
+                "fedex_ref_2": fedex_ref_2,
+                "fedex_ref_3": fedex_ref_3
+            }
+        )
+
+        # if the post failed, keep track of the error so it can be displayed
+        if status != 200:
+            error_message = post_output
+        else:
+            order_submissions = post_output["order_submissions"]
+            success_submissions = [x for x in order_submissions if
+                                   x["order_success"]]
+            failure_submissions = [x for x in order_submissions if not
+                                   x["order_success"]]
     else:
-        order_submissions = post_output["order_submissions"]
-        success_submissions = [x for x in order_submissions if
-                               x["order_success"]]
-        failure_submissions = [x for x in order_submissions if not
-                               x["order_success"]]
+        success_submissions = []
+        failure_submissions = []
 
     return render_template('submit_daklapack_order.html',
                            **build_login_variables(),
                            error_message=error_message,
                            success_submissions=success_submissions,
-                           failure_submissions=failure_submissions)
+                           failure_submissions=failure_submissions,
+                           hold_submissions_list=hold_submissions_list)
 
 
 @app.route('/authrocket_callback')

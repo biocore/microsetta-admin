@@ -519,8 +519,7 @@ class RouteTests(TestBase):
         # server side issues one POST to the API
         api_post_1 = DummyResponse(
             200,
-            {'order_submissions':
-                [
+            {'order_submissions': [
                     {'order_id': '11211',
                      'order_address': {'address1': '123 Main St',
                                        'address2': '',
@@ -550,15 +549,51 @@ class RouteTests(TestBase):
                                        'phone': '(858) 555-1212',
                                        'postalCode': 'KG7-448',
                                        'state': 'Ontario'},
-                     'order_success': False}]}
+                     'order_success': False},
+                    {'order_id': '11213',
+                     'order_address': {'address1': '38 Diagonal St',
+                                       'address2': '',
+                                       'city': 'Chiba',
+                                       'companyName': 'Dan H',
+                                       'country': 'Japan',
+                                       'countryCode': 'jp',
+                                       'firstName': 'Jerry',
+                                       'insertion': '',
+                                       'lastName': 'Index',
+                                       'phone': '(858) 555-1212',
+                                       'postalCode': '261-0022',
+                                       'state': 'Chiba'},
+                     'order_success': True},
+            ]}
         )
         self.mock_post.side_effect = [api_post_1]
 
         response = self._test_post_submit_daklapack_order()
+        self.assertNotIn(b'The following addresses are incomplete and NOT '
+                         b'submitted to Daklapack.', response.data)
         self.assertIn(b'The following orders were NOT successfully submitted '
                       b'to Daklapack.', response.data)
         self.assertIn(b'The following orders were successfully submitted '
                       b'to Daklapack', response.data)
+
+        # File: 3 complete addresses, 2 empty rows
+        # Expected: 3 addresses returned from Daklapack API + 2 table headers
+        self.assertEqual(response.data.count(b'<tr>'), 5)
+
+    def test_post_submit_daklapack_order_hold(self):
+        # No Private API Call
+        response = self._test_post_submit_daklapack_order(
+            "order_addresses_sample_hold.xlsx")
+        self.assertIn(b'The following addresses are incomplete and NOT '
+                      b'submitted to Daklapack.', response.data)
+        self.assertNotIn(b'The following orders were NOT successfully '
+                         b'submitted to Daklapack.', response.data)
+        self.assertNotIn(b'The following orders were successfully submitted '
+                         b'to Daklapack', response.data)
+
+        # File: 4 complete addresses, 3 empty rows
+        # Expected: No API Call, 4 hold addresses + 1 table header
+        self.assertEqual(response.data.count(b'<tr>'), 5)
 
     def test_post_submit_daklapack_order_fail_api(self):
         # server side issues one POST to the API
